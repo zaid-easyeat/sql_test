@@ -11,7 +11,6 @@ import {
   StatusBar,
   Switch,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
   Dimensions,
   SafeAreaView,
@@ -34,43 +33,77 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('users'); // 'users' or 'schemas'
 
-  // const baseUrl_ANDROID =
-  //   serverStatus === 'Running' ? `http://10.0.2.16:8080` : '';
+  // Dynamic baseUrl based on platform and ipAddress
+  const getServerUrl = () => {
+    if (serverStatus !== 'Running') return '';
 
-  // const baseUrl_ANDROID =
-  //   serverStatus === 'Running' ? `http://10.0.2.2:8080` : '';
+    // For Android emulator, use 10.0.2.2 to access host machine
+    if (Platform.OS === 'android') {
+      // Check if running in emulator
+      if (ipAddress.includes('10.0.2') || ipAddress.includes('unknown')) {
+        return `http://10.0.2.2:${serverPort}`; // Android emulator
+      }
+      return `http://${ipAddress}:${serverPort}`; // Physical Android device
+    }
 
-  // const baseUrl_IOS =
-  //   serverStatus === 'Running' ? `http://192.168.0.130:8080` : '';
+    // For iOS
+    if (Platform.OS === 'ios') {
+      if (ipAddress === 'localhost (simulator only) or device IP') {
+        return `http://localhost:${serverPort}`;
+      }
+      return `http://${ipAddress}:${serverPort}`;
+    }
 
-  // const baseUrl = Platform.OS === 'ios' ? baseUrl_IOS : baseUrl_ANDROID;
+    // Fallback
+    return `http://${ipAddress}:${serverPort}`;
+  };
 
-  const baseUrl = serverStatus === 'Running' ? `http://192.168.0.130:8080` : '';
+  const baseUrl = getServerUrl();
 
-  console.log('====================================');
-  console.log('baseUrl >> ', baseUrl);
-  console.log('====================================');
+  useEffect(() => {
+    console.log('Current baseUrl:', baseUrl);
+    console.log('Platform:', Platform.OS);
+    console.log('IP Address:', ipAddress);
+    console.log('Server Status:', serverStatus);
+    console.log('Server Port:', serverPort);
+  }, [baseUrl, ipAddress, serverStatus, serverPort]);
+
   const fetchUsers = async () => {
     if (serverStatus !== 'Running') {
       Alert.alert('Server Not Running', 'Please start the server first.');
       return;
     }
 
-    // const response = await fetch(`${baseUrl}/api/restaurant-users`);
-    // const data = await response.json();
-    // console.log('Fetched data:', data);
-
     setLoading(true);
     try {
-      const response = await axios.get(`${baseUrl}/api/restaurant-users`);
+      console.log('Fetching users from:', `${baseUrl}/api/restaurant-users`);
+      const response = await axios.get(`${baseUrl}/api/restaurant-users`, {
+        timeout: 5000, // Add timeout to prevent long waiting periods
+      });
       setUsers(response.data || []);
+      console.log('Users fetched successfully:', response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
+
+      // More detailed error logging
+      if (error.response) {
+        console.error(
+          'Response error:',
+          error.response.status,
+          error.response.data,
+        );
+      } else if (error.request) {
+        console.error('Request error (no response):', error.request);
+      } else {
+        console.error('Setup error:', error.message);
+      }
+
       const errorMessage = error.response
         ? `Error ${error.response.status}: ${
-            error.response.data.error || error.message
+            error.response.data?.error || error.message
           }`
-        : error.message;
+        : `Network error: ${error.message}. Check server connection.`;
+
       Alert.alert('Error', `Failed to fetch users: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -105,7 +138,8 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
         is_admin: isAdmin ? 1 : 0,
       };
 
-      console.log('Sending user data:', userData);
+      console.log('Sending user data to:', `${baseUrl}/api/restaurant-users`);
+      console.log('User data:', userData);
 
       const response = await axios.post(
         `${baseUrl}/api/restaurant-users`,
@@ -114,10 +148,11 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
           headers: {
             'Content-Type': 'application/json',
           },
+          timeout: 5000,
         },
       );
 
-      console.log('response', response);
+      console.log('Add user response:', response.status, response.data);
 
       if (response.status >= 200 && response.status < 300) {
         Alert.alert('Success', 'Restaurant user added successfully!');
@@ -131,15 +166,30 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
         // Refresh users list
         fetchUsers();
       } else {
-        Alert.alert('Error', response.data.error || 'Failed to add user');
+        Alert.alert('Error', response.data?.error || 'Failed to add user');
       }
     } catch (error) {
       console.error('Error adding user:', error);
+
+      // More detailed error logging
+      if (error.response) {
+        console.error(
+          'Response error:',
+          error.response.status,
+          error.response.data,
+        );
+      } else if (error.request) {
+        console.error('Request error (no response):', error.request);
+      } else {
+        console.error('Setup error:', error.message);
+      }
+
       const errorMessage = error.response
         ? `Error ${error.response.status}: ${
-            error.response.data.error || error.message
+            error.response.data?.error || error.message
           }`
-        : error.message;
+        : `Network error: ${error.message}. Check server connection.`;
+
       Alert.alert('Error', `Failed to add user: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -160,16 +210,19 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
           onPress: async () => {
             try {
               setLoading(true);
-              await axios.delete(`${baseUrl}/api/restaurant-users/${id}`);
+              console.log('Deleting user:', id);
+              await axios.delete(`${baseUrl}/api/restaurant-users/${id}`, {
+                timeout: 5000,
+              });
               Alert.alert('Success', 'User deleted successfully');
               fetchUsers(); // Refresh the list after deletion
             } catch (error) {
               console.error('Error deleting user:', error);
               const errorMessage = error.response
                 ? `Error ${error.response.status}: ${
-                    error.response.data.error || error.message
+                    error.response.data?.error || error.message
                   }`
-                : error.message;
+                : `Network error: ${error.message}`;
               Alert.alert('Error', `Failed to delete user: ${errorMessage}`);
             } finally {
               setLoading(false);
@@ -190,15 +243,19 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
 
     setLoading(true);
     try {
-      const response = await axios.get(`${baseUrl}/api/tables`);
+      console.log('Fetching tables from:', `${baseUrl}/api/tables`);
+      const response = await axios.get(`${baseUrl}/api/tables`, {
+        timeout: 5000,
+      });
       setTables(response.data);
+      console.log('Tables fetched successfully:', response.data);
     } catch (error) {
       console.error('Error fetching tables:', error);
       const errorMessage = error.response
         ? `Error ${error.response.status}: ${
-            error.response.data.error || error.message
+            error.response.data?.error || error.message
           }`
-        : error.message;
+        : `Network error: ${error.message}. Check server connection.`;
       Alert.alert('Error', `Failed to fetch tables: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -247,6 +304,9 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
       </SafeAreaView>
     );
   }
+
+  // Rest of your component (form rendering, list rendering, etc.) remains unchanged
+  // ...
 
   const renderUserForm = () => (
     <View style={styles.formContainer}>
@@ -524,11 +584,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#2874F0',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    ...Platform.select({
+      android: {
+        elevation: 4,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 2},
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
   },
   title: {
     color: 'white',
@@ -551,11 +617,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 4,
     margin: 8,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 1},
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+    }),
     overflow: 'hidden',
   },
   tabButton: {
@@ -586,13 +658,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 6,
     marginRight: 4,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 1},
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+    }),
     overflow: 'hidden',
   },
+  // Rest of your styles...
+  // (Keeping the same styles you had, just adding the Platform.select for elevation)
   formScrollView: {
     flex: 1,
   },
@@ -660,11 +740,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 6,
     marginLeft: 4,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 1},
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+    }),
     overflow: 'hidden',
   },
   listHeader: {
@@ -696,15 +782,22 @@ const styles = StyleSheet.create({
     padding: 6,
     borderLeftWidth: 2,
     borderLeftColor: '#2874F0',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
+    ...Platform.select({
+      android: {
+        elevation: 1,
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 1},
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+    }),
   },
   userCardEven: {
     borderLeftColor: '#FF9800',
   },
+  // Rest of the style definitions...
   userInfo: {
     flex: 1,
   },
