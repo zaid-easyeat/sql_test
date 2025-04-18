@@ -34,34 +34,48 @@ const DatabaseScreen = ({serverStatus, serverPort, ipAddress}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('users'); // 'users' or 'schemas'
 
-  const baseUrl = serverStatus === 'Running' ? `http://10.0.2.2:8080` : '';
+  // const baseUrl_ANDROID =
+  //   serverStatus === 'Running' ? `http://10.0.2.16:8080` : '';
 
+  // const baseUrl_ANDROID =
+  //   serverStatus === 'Running' ? `http://10.0.2.2:8080` : '';
+
+  // const baseUrl_IOS =
+  //   serverStatus === 'Running' ? `http://192.168.0.130:8080` : '';
+
+  // const baseUrl = Platform.OS === 'ios' ? baseUrl_IOS : baseUrl_ANDROID;
+
+  const baseUrl = serverStatus === 'Running' ? `http://192.168.0.130:8080` : '';
+
+  console.log('====================================');
+  console.log('baseUrl >> ', baseUrl);
+  console.log('====================================');
   const fetchUsers = async () => {
     if (serverStatus !== 'Running') {
       Alert.alert('Server Not Running', 'Please start the server first.');
       return;
     }
 
-    const response = await fetch(`${baseUrl}/api/restaurant-users`);
-    const data = await response.json();
-    console.log('Fetched data:', data);
+    // const response = await fetch(`${baseUrl}/api/restaurant-users`);
+    // const data = await response.json();
+    // console.log('Fetched data:', data);
 
-    // setLoading(true);
-    // try {
-    //   const response = await axios.get(`${baseUrl}/api/restaurant-users`);
-    //   setUsers(response.data || []);
-    // } catch (error) {
-    //   console.error('Error fetching users:', error);
-    //   const errorMessage = error.response
-    //     ? `Error ${error.response.status}: ${
-    //         error.response.data.error || error.message
-    //       }`
-    //     : error.message;
-    //   Alert.alert('Error', `Failed to fetch users: ${errorMessage}`);
-    // } finally {
-    //   setLoading(false);
-    //   setRefreshing(false);
-    // }
+    setLoading(true);
+    try {
+      const response = await axios.get(`${baseUrl}/api/restaurant-users`);
+      setUsers(response.data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      const errorMessage = error.response
+        ? `Error ${error.response.status}: ${
+            error.response.data.error || error.message
+          }`
+        : error.message;
+      Alert.alert('Error', `Failed to fetch users: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   const handleRefresh = () => {

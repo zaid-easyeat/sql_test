@@ -198,6 +198,7 @@ const App = () => {
             ipAddress={ipAddress}
             startServer={startServer}
             stopServer={stopServer}
+            testServerFromApp={testServerFromApp}
           />
         ) : activeTab == 'database' ? (
           <DatabaseScreen
